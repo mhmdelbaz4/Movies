@@ -1,26 +1,21 @@
-﻿namespace MoviesAPI.Models
+﻿namespace MoviesAPI.Dtos
 {
-    public class Movie
+    public class MovieDto
     {
-        public int MovieId { get; set; }
-
         [MaxLength(200)]
         public string Title { get; set; }
 
-        [Range(1950,2023)]
+        [Range(1950, 2023)]
         public int Year { get; set; }
 
-        [Range(0,10)]
+        [Range(0, 10)]
         public double Rate { get; set; }
 
         [MaxLength(2500)]
         public string StoryLine { get; set; }
 
-        public byte[] Poster { get; set; }
+        public IFormFile Poster { get; set; }
 
         public byte GenreId { get; set; }
-
-        public Genre Genre { get; set; }
-
     }
 }
