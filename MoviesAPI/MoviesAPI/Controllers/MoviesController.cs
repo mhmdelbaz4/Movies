@@ -18,6 +18,27 @@ namespace MoviesAPI.Controllers
             _allowedPosterExtensions = new() { ".jpg", ".png" };
         }
 
+        [HttpGet]
+        public async Task<IActionResult> AllMovies()
+        {
+            List<Movie> movies = await _context.Movies.ToListAsync();
+
+            if (movies.Count == 0)
+                return NotFound("No Movies Found");
+
+            return Ok(movies);
+        }
+
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> MovieById(int id)
+        {
+            Movie? movie =await _context.Movies.FindAsync(id);
+            if (movie == null)
+                return NotFound($"No movie found with id :{id}");
+
+            return Ok(movie);
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateMovie([FromForm]MovieDto dto)
         {
@@ -46,6 +67,36 @@ namespace MoviesAPI.Controllers
 
             return Ok(movie);
 
+        }
+
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> UpdateMovie([FromForm]MovieDto dto ,int id)
+        {
+            Movie? UpdatedMovie = await _context.Movies.FindAsync(id);
+            if (UpdatedMovie == null)
+                return NotFound($"No movie found with ID : {id}");
+
+            bool isValidGenreId = await _context.Genres.AnyAsync(g => g.GenreId == dto.GenreId);
+            if (!isValidGenreId)
+                return BadRequest($"No genre found with ID : {dto.GenreId}");
+
+            if (!IsValidPoster(dto.Poster, out string msg))
+                return BadRequest(msg);
+
+            using var dataStream = new MemoryStream();
+            await dto.Poster.CopyToAsync(dataStream);
+
+            UpdatedMovie.Title = dto.Title;
+            UpdatedMovie.Rate = dto.Rate;
+            UpdatedMovie.StoryLine = dto.StoryLine;
+            UpdatedMovie.Year = dto.Year;
+            UpdatedMovie.GenreId = dto.GenreId;
+            UpdatedMovie.Poster = dataStream.ToArray();
+
+            _context.SaveChanges();
+
+            return Ok(UpdatedMovie);
+           
         }
 
         public bool IsValidPoster(IFormFile poster ,out string msg)
