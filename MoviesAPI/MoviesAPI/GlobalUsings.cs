@@ -3,3 +3,5 @@ global using System.ComponentModel.DataAnnotations.Schema;
 global using MoviesAPI.Models;
 global using Microsoft.EntityFrameworkCore;
 global using MoviesAPI.Dtos;
+global using MoviesAPI.Repos;
+

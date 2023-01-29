@@ -7,21 +7,43 @@ namespace MoviesAPI.Controllers
     [ApiController]
     public class MoviesController : ControllerBase
     {
-        private readonly AppDBContext _context;
+        private readonly IMovieRepository _moviesRepository;
+        private readonly IGenreRepository _genresRepository;
+
         private readonly long _maxAllowedPosterSize;
         private readonly List<string> _allowedPosterExtensions;
 
-        public MoviesController(AppDBContext context)
+        public MoviesController(AppDBContext context, IMovieRepository moviesRepository, IGenreRepository genresRepository)
         {
-            _context = context;
             _maxAllowedPosterSize = 1048576;
             _allowedPosterExtensions = new() { ".jpg", ".png" };
+            _moviesRepository = moviesRepository;
+            _genresRepository = genresRepository;
         }
 
         [HttpGet]
-        public async Task<IActionResult> AllMovies()
+        public async Task<IActionResult> getALlAsync()
         {
-            List<Movie> movies = await _context.Movies.ToListAsync();
+            IEnumerable<Movie> movies = await _moviesRepository.GetAllAsync();
+
+            return Ok(movies);
+        }
+
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> GetByIdAsync(int id)
+        {
+            Movie? movie =await _moviesRepository.GetByIdAsync(id);
+
+            if (movie == null)
+                return NotFound($"No movie found with id :{id}");
+
+            return Ok(movie);
+        }
+
+        [HttpGet("GetByGenreIdAsync/{genreId:int}")]
+        public async Task<IActionResult> GetByGenreIdAsync(byte genreId)
+        {
+            List<Movie> movies = await _moviesRepository.GetAllByGenreId(genreId);
 
             if (movies.Count == 0)
                 return NotFound("No Movies Found");
@@ -29,20 +51,10 @@ namespace MoviesAPI.Controllers
             return Ok(movies);
         }
 
-        [HttpGet("{id:int}")]
-        public async Task<IActionResult> MovieById(int id)
-        {
-            Movie? movie =await _context.Movies.FindAsync(id);
-            if (movie == null)
-                return NotFound($"No movie found with id :{id}");
-
-            return Ok(movie);
-        }
-
         [HttpPost]
-        public async Task<IActionResult> CreateMovie([FromForm]MovieDto dto)
+        public async Task<IActionResult> CreateMovie([FromForm]CreateMovieDto dto)
         {
-            bool isValidGenreId =await _context.Genres.AnyAsync(g => g.GenreId == dto.GenreId);
+            bool isValidGenreId = await _genresRepository.IsValidGenreIdAsync(dto.GenreId);
             if(! isValidGenreId)
                 return BadRequest($"No genre found with ID : {dto.GenreId}");
 
@@ -62,43 +74,56 @@ namespace MoviesAPI.Controllers
                 Poster = dataStream.ToArray()
             };
 
-            _context.Movies.Add(movie);
-            _context.SaveChanges();
+            await _moviesRepository.AddAsync(movie);
 
             return Ok(movie);
-
         }
 
         [HttpPut("{id:int}")]
-        public async Task<IActionResult> UpdateMovie([FromForm]MovieDto dto ,int id)
+        public async Task<IActionResult> UpdateAsync([FromForm]UpdateMovieDto dto ,int id)
         {
-            Movie? UpdatedMovie = await _context.Movies.FindAsync(id);
+            Movie? UpdatedMovie = await _moviesRepository.GetByIdAsync(id);
             if (UpdatedMovie == null)
                 return NotFound($"No movie found with ID : {id}");
 
-            bool isValidGenreId = await _context.Genres.AnyAsync(g => g.GenreId == dto.GenreId);
-            if (!isValidGenreId)
+            bool IsValidGenreId = await _genresRepository.IsValidGenreIdAsync(dto.GenreId);
+            if (! IsValidGenreId)
                 return BadRequest($"No genre found with ID : {dto.GenreId}");
 
-            if (!IsValidPoster(dto.Poster, out string msg))
-                return BadRequest(msg);
+            if (dto.Poster != null)
+            {
+                if (!IsValidPoster(dto.Poster, out string msg))
+                    return BadRequest(msg);
 
-            using var dataStream = new MemoryStream();
-            await dto.Poster.CopyToAsync(dataStream);
+                using var dataStream = new MemoryStream();
+                await dto.Poster.CopyToAsync(dataStream);
+                UpdatedMovie.Poster = dataStream.ToArray();
+            }
 
             UpdatedMovie.Title = dto.Title;
             UpdatedMovie.Rate = dto.Rate;
             UpdatedMovie.StoryLine = dto.StoryLine;
             UpdatedMovie.Year = dto.Year;
             UpdatedMovie.GenreId = dto.GenreId;
-            UpdatedMovie.Poster = dataStream.ToArray();
 
-            _context.SaveChanges();
+            _moviesRepository.Update(UpdatedMovie);
 
             return Ok(UpdatedMovie);
            
         }
 
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> DeleteMovie(int id)
+        {
+            Movie? DeletedMovie = await _moviesRepository.GetByIdAsync(id);
+
+            if (DeletedMovie == null)
+                return NotFound($"No movie found with Id :{id}");
+
+            _moviesRepository.Delete(DeletedMovie);
+
+            return Ok(DeletedMovie);
+        }
         public bool IsValidPoster(IFormFile poster ,out string msg)
         {
             msg = "valid";

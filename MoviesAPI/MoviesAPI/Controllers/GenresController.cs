@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-
+using MoviesAPI.Repos;
 
 namespace MoviesAPI.Controllers
 {
@@ -8,17 +8,17 @@ namespace MoviesAPI.Controllers
     [ApiController]
     public class GenresController : ControllerBase
     {
-        private readonly AppDBContext _context;
+        private readonly IGenreRepository _genreRepository;
 
-        public GenresController(AppDBContext context)
+        public GenresController(IGenreRepository genreRepository)
         {
-            _context = context;
+            _genreRepository = genreRepository;
         }
 
         [HttpGet]
         public async Task<IActionResult> AllGenres()
         {
-            List<Genre> genres = await _context.Genres.ToListAsync();
+            IEnumerable<Genre> genres = await _genreRepository.GetAllAsync();
 
             return Ok(genres);
         }
@@ -26,7 +26,7 @@ namespace MoviesAPI.Controllers
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GenreById(byte id)
         {
-            Genre? genre = await _context.Genres.FirstOrDefaultAsync(g => g.GenreId == id);
+            Genre? genre = await _genreRepository.GetByIdAsync(id);
 
             if (genre == null)
                 return NotFound($"No Genre with Id :{id}");
@@ -42,38 +42,36 @@ namespace MoviesAPI.Controllers
                 Name = dto.Name
             };
 
-            _context.Genres.Add(genre);
-            _context.SaveChanges();
+            await _genreRepository.AddAsync(genre);
 
             return Ok(genre);
         }
 
         [HttpPut("{id:int}")]
-        public async Task<IActionResult> UpdateGenre(int id, GenreDto dto)
+        public async Task<IActionResult> UpdateGenre(byte id, GenreDto dto)
         {
-            
-            Genre? updatedGenre =await _context.Genres.FirstOrDefaultAsync(g => g.GenreId == id);
+
+            Genre? updatedGenre = await _genreRepository.GetByIdAsync(id);
 
             if (updatedGenre == null)
                 return NotFound($"No Genre with Id :{id}");
 
             updatedGenre.Name = dto.Name;
-            _context.SaveChanges();
+            _genreRepository.Update(updatedGenre);
 
             return Ok(updatedGenre);
 
         }
 
         [HttpDelete("{id:int}")]
-        public async Task<IActionResult> DeleteGenre(int id)
+        public async Task<IActionResult> DeleteGenre(byte id)
         {
-            Genre? deletedGenre = await _context.Genres.FirstOrDefaultAsync(g => g.GenreId == id);
+            Genre? deletedGenre = await _genreRepository.GetByIdAsync(id);
 
             if (deletedGenre == null)
                 return NotFound($"No Genre with Id :{id}");
 
-            _context.Genres.Remove(deletedGenre);
-            _context.SaveChanges();
+            _genreRepository.Delete(deletedGenre);
 
             return Ok(deletedGenre);
         }
